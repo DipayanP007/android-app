@@ -2,9 +2,14 @@ name: Android CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ development ]
   pull_request:
-    branches: [ master ]
+    branches: [ development ]
+
+env:
+  ANDROID_API: 31
+  ANDROID_BUILD_TOOLS: 31.0.0
+  ANDROID_HOME: ~/android-sdk
 
 jobs:
   build:
@@ -20,7 +25,21 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: before install
+      run: |
+           rm -f $HOME/.gradle/caches/modules-2/modules-2.lock
+           rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+           touch $HOME/.android/repositories.cfg
+           wget "https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip" -O commandlinetools.zip
+           unzip commandlinetools.zip -d $ANDROID_HOME/
+           yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager "platforms;android-${ANDROID_API}" --sdk_root=$ANDROID_HOME
+           yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager "build-tools;${ANDROID_BUILD_TOOLS}" --sdk_root=$ANDROID_HOME
     - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      run: |
+           rm -rf $TRAVIS_BUILD_DIR/app/build/outputs
+           chmod +x gradlew
+           chmod +x gradle/wrapper/gradle-wrapper.jar
     - name: Build with Gradle
-      run: ./gradlew build
+      run: |
+           if [[ "$TRAVIS_TAG" ]]; then ./gradlew clean :app:assembleRelease --full-stacktrace;
+           else ./gradlew clean test --full-stacktrace; fi
